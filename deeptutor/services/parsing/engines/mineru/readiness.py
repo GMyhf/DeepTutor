@@ -64,6 +64,15 @@ def mineru_readiness(config) -> ReadinessReport:
             )
         return ReadinessReport(ready=True)
 
+    if config.is_server:
+        if not (config.api_base_url or "").strip():
+            return ReadinessReport(
+                ready=False,
+                reason="not_configured",
+                message="Set the self-hosted MinerU API base URL under Settings → Document Parsing.",
+            )
+        return ReadinessReport(ready=True)
+
     # Local mode.
     from .backend import local_cli_probe
 

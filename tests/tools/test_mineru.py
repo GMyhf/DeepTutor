@@ -11,6 +11,7 @@ import pytest
 from deeptutor.services.parsing.engines.mineru import backend as mineru_backend
 from deeptutor.services.parsing.engines.mineru import cloud as mineru_cloud
 from deeptutor.services.parsing.engines.mineru import config as mineru_config
+from deeptutor.services.parsing.engines.mineru import server as mineru_server
 from deeptutor.services.parsing.engines.mineru.config import MinerUConfig, MinerUError
 
 # ---------------------------------------------------------------------------
@@ -383,6 +384,52 @@ def test_parse_cloud_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert (workdir / "full.md").exists()
     assert (workdir / "exam_content_list.json").exists()
     assert (workdir / "images" / "fig.png").exists()
+
+
+def test_parse_server_writes_canonical_zip_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pdf = tmp_path / "exam.pdf"
+    pdf.write_bytes(b"%PDF-1.4 test")
+
+    class Response:
+        content = _zip_bytes()
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {}
+
+    captured: dict[str, object] = {}
+
+    def post(url, **kwargs):  # noqa: ANN001
+        captured["url"] = url
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr(mineru_server.httpx, "post", post)
+    workdir = mineru_server.parse_server(
+        pdf,
+        tmp_path / "out",
+        MinerUConfig(mode="server", api_base_url="http://mineru:8000", is_ocr=True),
+    )
+    assert captured["url"] == "http://mineru:8000/file_parse"
+    assert captured["data"]["parse_method"] == "ocr"  # type: ignore[index]
+    assert (workdir / "full.md").is_file()
+    assert (workdir / "images" / "fig.png").is_file()
+
+
+def test_verify_server_accepts_healthy_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": "healthy", "version": "3.4.4"}
+
+    monkeypatch.setattr(mineru_server.httpx, "get", lambda *args, **kwargs: Response())
+    assert mineru_server.verify_server(MinerUConfig(mode="server", api_base_url="http://mineru")) == "3.4.4"
 
 
 def test_parse_cloud_surfaces_api_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

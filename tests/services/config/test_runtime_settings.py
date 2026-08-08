@@ -274,6 +274,11 @@ def test_mineru_defaults_and_normalization(tmp_path: Path) -> None:
     assert saved["is_ocr"] is True
     # Unknown mode falls back to local.
     assert service.save_mineru({"mode": "weird"})["mode"] == "local"
+    saved = service.save_mineru(
+        {"mode": "server", "api_base_url": " http://100.76.69.33:8000/ "}
+    )
+    assert saved["mode"] == "server"
+    assert saved["api_base_url"] == "http://100.76.69.33:8000"
 
     # Model-download fields: source whitelisted, endpoint trimmed.
     saved = service.save_mineru(

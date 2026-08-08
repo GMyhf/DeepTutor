@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from deeptutor.services.config.runtime_settings import (
     MINERU_MODE_CLOUD,
     MINERU_MODE_LOCAL,
+    MINERU_MODE_SERVER,
     load_mineru_settings,
 )
 
@@ -30,9 +31,8 @@ class MinerUError(RuntimeError):
 class MinerUConfig:
     """Validated MinerU parsing configuration.
 
-    ``mode`` is one of ``"local"`` / ``"cloud"``. The cloud branch additionally
-    requires ``api_token``; the remaining fields are parsing knobs both
-    backends understand (the local CLI ignores the ones it doesn't support).
+    ``mode`` is one of ``"local"``, ``"cloud"``, or ``"server"``. The server
+    branch targets a self-hosted MinerU 3 FastAPI service.
     """
 
     mode: str = MINERU_MODE_LOCAL
@@ -62,6 +62,10 @@ class MinerUConfig:
     @property
     def is_local(self) -> bool:
         return self.mode == MINERU_MODE_LOCAL
+
+    @property
+    def is_server(self) -> bool:
+        return self.mode == MINERU_MODE_SERVER
 
     @property
     def api_language(self) -> str | None:

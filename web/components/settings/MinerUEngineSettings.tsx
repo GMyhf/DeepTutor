@@ -14,7 +14,7 @@ import {
 import { Toggle } from "@/components/settings/Toggle";
 import { apiFetch, apiUrl } from "@/lib/api";
 
-type MinerUMode = "local" | "cloud";
+type MinerUMode = "local" | "cloud" | "server";
 type MinerUModelVersion = "pipeline" | "vlm";
 type MinerUDownloadSource = "huggingface" | "modelscope";
 type MinerUDownloadType = "pipeline" | "vlm" | "all";
@@ -65,7 +65,7 @@ type MinerUPayload = {
 function normalizeDraft(payload: MinerUPayload): MinerUSettings {
   const s = payload.settings;
   return {
-    mode: s.mode === "cloud" ? "cloud" : "local",
+    mode: s.mode === "cloud" || s.mode === "server" ? s.mode : "local",
     api_base_url: s.api_base_url || "https://mineru.net",
     local_cli_path: s.local_cli_path || "",
     model_download_source:
@@ -323,6 +323,8 @@ export function MinerUEngineSettings() {
 
   const tokenSet = payload?.api_token_set ?? false;
   const isCloud = draft?.mode === "cloud";
+  const isServer = draft?.mode === "server";
+  const isRemote = isCloud || isServer;
   const localCli = payload?.local_cli;
 
   function renderTestControl(label: string) {
@@ -393,13 +395,15 @@ export function MinerUEngineSettings() {
           description={
             isCloud
               ? t("Documents are uploaded to mineru.net for parsing.")
+              : isServer
+                ? t("Documents are uploaded through the self-hosted MinerU 3 FastAPI service.")
               : t(
                   "Parsing runs on this machine using the local MinerU install.",
                 )
           }
           control={
             <div className="inline-flex rounded-lg border border-[var(--border)] p-0.5">
-              {(["local", "cloud"] as MinerUMode[]).map((m) => (
+              {(["local", "server", "cloud"] as MinerUMode[]).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -413,7 +417,11 @@ export function MinerUEngineSettings() {
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                   }`}
                 >
-                  {m === "local" ? t("Local") : t("Cloud API")}
+                  {m === "local"
+                    ? t("Local")
+                    : m === "server"
+                      ? t("Self-hosted API")
+                      : t("Cloud API")}
                 </button>
               ))}
             </div>
@@ -598,20 +606,26 @@ export function MinerUEngineSettings() {
         </SettingSection>
       )}
 
-      {isCloud && (
+      {isRemote && (
         <SettingSection
-          title={t("Cloud API")}
-          description={t("Get an API token from mineru.net → API management.")}
+          title={isServer ? t("Self-hosted MinerU 3 API") : t("Cloud API")}
+          description={
+            isServer
+              ? t("Connect to a MinerU 3 FastAPI service over your private network.")
+              : t("Get an API token from mineru.net → API management.")
+          }
         >
           <SettingRow
             title={t("API base URL")}
-            description={t(
-              "Override only if you use a self-hosted MinerU endpoint.",
-            )}
+            description={
+              isServer
+                ? t("MinerU 3 API base URL, for example http://100.76.69.33:8000. Do not append /file_parse.")
+                : t("Override only if you use a self-hosted MinerU endpoint.")
+            }
             control={
               <input
                 className={`${inputClass} w-[320px] max-w-[48vw]`}
-                placeholder={DEFAULT_BASE_URL}
+                placeholder={isServer ? "http://100.76.69.33:8000" : DEFAULT_BASE_URL}
                 value={draft.api_base_url}
                 onChange={(e) => patch({ api_base_url: e.target.value })}
               />
@@ -624,7 +638,9 @@ export function MinerUEngineSettings() {
                 ? t(
                     "A token is saved. Type to replace it; leave blank to keep it.",
                   )
-                : t("No token saved yet.")
+                : isServer
+                  ? t("Optional. Sent as a Bearer token when your reverse proxy requires authentication.")
+                  : t("No token saved yet.")
             }
             control={
               <input
@@ -641,9 +657,11 @@ export function MinerUEngineSettings() {
           />
           <SettingRow
             title={t("Test connection")}
-            description={t(
-              "Verifies the token against the MinerU API (no quota used).",
-            )}
+            description={
+              isServer
+                ? t("Checks the self-hosted MinerU /health endpoint without uploading a document.")
+                : t("Verifies the token against the MinerU API (no quota used).")
+            }
             control={renderTestControl(t("Test"))}
           />
         </SettingSection>

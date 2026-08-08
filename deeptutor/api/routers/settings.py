@@ -214,7 +214,7 @@ class MinerUSettingsUpdate(BaseModel):
     non-empty string replaces it. The GET payload never echoes the raw token.
     """
 
-    mode: Literal["local", "cloud"] = "local"
+    mode: Literal["local", "cloud", "server"] = "local"
     api_base_url: str = "https://mineru.net"
     api_token: Optional[str] = None
     local_cli_path: str = ""
@@ -1023,7 +1023,7 @@ async def test_mineru_connection(payload: MinerUSettingsUpdate):
     stored = service.load_mineru(include_process_overrides=False)
     token = stored.get("api_token", "") if payload.api_token is None else payload.api_token.strip()
     config = MinerUConfig(
-        mode="cloud",
+        mode=payload.mode,
         api_base_url=(payload.api_base_url or "").strip().rstrip("/") or "https://mineru.net",
         api_token=token,
         model_version=payload.model_version,
@@ -1033,6 +1033,11 @@ async def test_mineru_connection(payload: MinerUSettingsUpdate):
         is_ocr=payload.is_ocr,
     )
     try:
+        if payload.mode == "server":
+            from deeptutor.services.parsing.engines.mineru.server import verify_server
+
+            version = await asyncio.to_thread(verify_server, config)
+            return {"ok": True, "message": f"Self-hosted MinerU API is healthy (v{version})."}
         await asyncio.to_thread(verify_credentials, config)
     except MinerUError as exc:
         return {"ok": False, "message": str(exc)}

@@ -57,6 +57,12 @@ def parse_pdf_to_workdir(
         logger.info("Parsing %s via MinerU cloud API", pdf_path.name)
         return parse_cloud(pdf_path, output_base, cfg, on_progress=on_output)
 
+    if cfg.is_server:
+        from .server import parse_server
+
+        logger.info("Parsing %s via self-hosted MinerU API", pdf_path.name)
+        return parse_server(pdf_path, output_base, cfg, on_progress=on_output)
+
     return _parse_local(pdf_path, output_base, config=cfg, on_output=on_output)
 
 
