@@ -416,8 +416,16 @@ def test_parse_server_writes_canonical_zip_artifacts(
     )
     assert captured["url"] == "http://mineru:8000/file_parse"
     assert captured["data"]["parse_method"] == "ocr"  # type: ignore[index]
+    assert captured["timeout"] == 7200.0
     assert (workdir / "full.md").is_file()
     assert (workdir / "images" / "fig.png").is_file()
+
+
+def test_parse_server_respects_timeout_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MINERU_SERVER_TIMEOUT_SECONDS", "1800")
+    assert mineru_server._request_timeout_seconds() == 1800.0
+    monkeypatch.setenv("MINERU_SERVER_TIMEOUT_SECONDS", "invalid")
+    assert mineru_server._request_timeout_seconds() == 7200.0
 
 
 def test_verify_server_accepts_healthy_response(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from pathlib import Path
 
 import httpx
@@ -10,7 +11,18 @@ import httpx
 from .cloud import _extract_archive
 from .config import MinerUConfig, MinerUError
 
-_REQUEST_TIMEOUT_SECONDS = 900.0
+_DEFAULT_REQUEST_TIMEOUT_SECONDS = 7200.0
+
+
+def _request_timeout_seconds() -> float:
+    """Return the bounded timeout for long-running self-hosted OCR requests."""
+    value = os.environ.get("MINERU_SERVER_TIMEOUT_SECONDS", "").strip()
+    if not value:
+        return _DEFAULT_REQUEST_TIMEOUT_SECONDS
+    try:
+        return max(30.0, float(value))
+    except ValueError:
+        return _DEFAULT_REQUEST_TIMEOUT_SECONDS
 
 
 def _headers(config: MinerUConfig) -> dict[str, str]:
@@ -71,7 +83,7 @@ def parse_server(
                 headers=_headers(config),
                 data=data,
                 files={"files": (pdf_path.name, source, "application/pdf")},
-                timeout=_REQUEST_TIMEOUT_SECONDS,
+                timeout=_request_timeout_seconds(),
             )
         response.raise_for_status()
     except httpx.HTTPError as exc:
